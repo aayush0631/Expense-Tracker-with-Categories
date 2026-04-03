@@ -2,6 +2,7 @@ import 'package:expense_tracker/core/viewmodel/theme_viewmodel.dart';
 import 'package:expense_tracker/db/database/database_helper.dart';
 import 'package:expense_tracker/db/repository/expense_repository.dart';
 import 'package:expense_tracker/feature/expense/viewmodel/expense_viewmodel.dart';
+import 'package:expense_tracker/feature/stats/viewmodel/stats_viewmodel.dart';
 import 'package:expense_tracker/routing/router.dart';
 import 'package:expense_tracker/routing/routes.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ void main() {
         ChangeNotifierProvider(
           create: (_) => ThemeViewmodel()..loadTheme(),
         ),
+        ChangeNotifierProvider(create: (_) => StatsViewModel(repo: repo))
       ],
       child: const MyApp(),
     ),

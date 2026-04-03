@@ -22,18 +22,16 @@ class ExpenseFormView extends StatelessWidget {
             // Title
             Text(
               isEditing ? 'Edit Expense' : 'Add Expense',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
 
             // Amount
             TextFormField(
               controller: vm.amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Amount (Rs)',
                 border: OutlineInputBorder(),
@@ -65,7 +63,7 @@ class ExpenseFormView extends StatelessWidget {
 
             // Category Dropdown
             DropdownButtonFormField<int?>(
-              value: vm.editingExpense != null
+              initialValue: vm.editingExpense != null
                   ? vm.editingExpense!.categoryId
                   : vm.selectedCategoryId,
               decoration: const InputDecoration(
@@ -108,9 +106,7 @@ class ExpenseFormView extends StatelessWidget {
                       ? 'Select a date'
                       : '${vm.selectedDate!.day}/${vm.selectedDate!.month}/${vm.selectedDate!.year}',
                   style: TextStyle(
-                    color: vm.selectedDate == null
-                        ? Colors.grey
-                        : null,
+                    color: vm.selectedDate == null ? Colors.grey : null,
                   ),
                 ),
               ),
@@ -138,12 +134,14 @@ class ExpenseFormView extends StatelessWidget {
                         if (vm.selectedDate == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Please select a date')),
+                              content: Text('Please select a date'),
+                            ),
                           );
                         } else if (vm.selectedCategoryId == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Please select a category')),
+                              content: Text('Please select a category'),
+                            ),
                           );
                         }
                       }

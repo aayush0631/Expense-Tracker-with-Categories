@@ -120,7 +120,7 @@ class ExpenseViewModel extends ChangeNotifier {
     }
 
     if (result is Failure) {
-      errorMessage = (result as Failure).message;
+      errorMessage = result.message;
       isLoading = false;
       notifyListeners();
       return false;
@@ -218,25 +218,42 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------ SEARCH ------------------
-  Future<void> search(String q) async {
-    if (q.trim().isEmpty) {
-      _filteredExpenses = null;
-      notifyListeners();
-      return;
-    }
+// ------------------ SEARCH STATE ------------------
+final searchController = TextEditingController();
+List<Expense> _searchResults = [];
+List<Expense> get searchResults => _searchResults;
+bool get isSearching => searchController.text.isNotEmpty;
 
-    final result = await repo.searchExpenses(q.trim());
-
-    if (result is Success<List<Expense>>) {
-      _filteredExpenses = result.data;
-    } else {
-      _filteredExpenses = [];
-    }
-
+Future<void> searchExpenses(String query) async {
+  if (query.trim().isEmpty) {
+    _searchResults = [];
     notifyListeners();
+    return;
   }
 
+  final result = await repo.searchExpenses(query.trim());
+
+  if (result is Success<List<Expense>>) {
+    _searchResults = result.data;
+  } else {
+    _searchResults = [];
+  }
+
+  notifyListeners();
+}
+
+Future<void> clearSearch() async {
+  searchController.clear();
+  _searchResults = [];
+  notifyListeners();
+}
+
+// ------------------ VISIBLE LIST ------------------
+// Update this getter to also account for search
+List<Expense> get visibleExpenses {
+  if (isSearching) return _searchResults;
+  return _filteredExpenses ?? _expenses;
+}
   // ------------------ FORM HELPERS ------------------
 
   /// Call this before opening the bottom sheet for editing
@@ -270,9 +287,7 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------ VISIBLE LIST ------------------
-  List<Expense> get visibleExpenses => _filteredExpenses ?? _expenses;
-
+  
   // ------------------ DISPOSE ------------------
   @override
   void dispose() {

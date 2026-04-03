@@ -1,6 +1,17 @@
+import 'dart:async';
+import 'package:expense_tracker/domain/model/category.dart';
 import 'package:path/path.dart';
+import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+/// A singleton helper class that manages dataabase for the expensetracker app
+///
+/// This class handles:
+/// - Database initialization
+/// - Table creation (categories & expenses)
+/// - CRUD operations
+/// - Advanced filtering, search, and aggregation
+/// - Get data gor the stats
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -8,28 +19,39 @@ class DatabaseHelper {
 
   static Database? _database;
 
+  /// Database configuration constants
   static const String dbName = 'expenses_tracker.db';
   static const int dbVersion = 1;
 
+  /// Table names
   static const String categoryTable = 'categories';
   static const String expenseTable = 'expenses';
 
+  /// Common column names
   static const String colId = 'id';
   static const String colName = 'name';
   static const String colIcon = 'icon';
   static const String colColor = 'color';
-
   static const String colAmount = 'amount';
   static const String colDescription = 'description';
   static const String colCategoryId = 'category_id';
   static const String colDate = 'date';
 
+  /// Returns the singleton database instance.
+  /// If the database is not initialized, it initializes it first.
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB();
     return _database!;
   }
 
+  /// Initializes the SQLite database and returns the database instance.
+  ///
+  /// Steps:
+  /// - Gets database path
+  /// - Opens/creates database
+  /// - Enables foreign key support
+  /// - Calls onCreate if database is newly created
   Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, dbName);
@@ -44,6 +66,13 @@ class DatabaseHelper {
     );
   }
 
+  /// Creates required tables and seeds initial data.
+  ///
+  /// Tables:
+  /// - categories
+  /// - expenses
+  ///
+  /// Also inserts default categories like Food, Transport, etc.
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE $categoryTable (
@@ -67,7 +96,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Seed default categories
+    /// Default seeded categories
     final defaultCategories = [
       {'name': 'Food', 'icon': 'food', 'color': '#FF5722'},
       {'name': 'Transport', 'icon': 'transport', 'color': '#2196F3'},
@@ -75,38 +104,38 @@ class DatabaseHelper {
       {'name': 'Bills', 'icon': 'bills', 'color': '#F44336'},
       {'name': 'Other', 'icon': 'other', 'color': '#607D8B'},
     ];
+
     for (final cat in defaultCategories) {
       await db.insert(categoryTable, cat);
     }
   }
 
-  // ---------------- CATEGORY ----------------
-  Future<int> insertCategory(Map<String, dynamic> data) async {
-    final db = await database;
-    return db.insert(categoryTable, data);
-  }
-
+  /// Fetches all categories from the database.
   Future<List<Map<String, dynamic>>> getCategories() async {
     final db = await database;
     return db.query(categoryTable);
   }
 
   // ---------------- EXPENSE CRUD ----------------
+
+  /// Inserts a new expense into the database.
   Future<int> insertExpense(Map<String, dynamic> data) async {
     final db = await database;
-    // Remove id so AUTOINCREMENT works correctly
     final insertData = Map<String, dynamic>.from(data)..remove('id');
     return db.insert(expenseTable, insertData);
   }
 
+  /// Retrieves all expenses ordered by date (latest first).
   Future<List<Map<String, dynamic>>> getExpenses() async {
     final db = await database;
     return db.query(expenseTable, orderBy: '$colDate DESC');
   }
 
+  /// Updates an existing expense by ID.
   Future<int> updateExpense(int id, Map<String, dynamic> data) async {
     final db = await database;
     final updateData = Map<String, dynamic>.from(data)..remove('id');
+
     return db.update(
       expenseTable,
       updateData,
@@ -115,16 +144,20 @@ class DatabaseHelper {
     );
   }
 
+  /// Deletes an expense by ID.
   Future<int> deleteExpense(int id) async {
     final db = await database;
-    return db.delete(
-      expenseTable,
-      where: '$colId = ?',
-      whereArgs: [id],
-    );
+    return db.delete(expenseTable, where: '$colId = ?', whereArgs: [id]);
   }
 
   // ---------------- FILTER ----------------
+
+  /// Fetches expenses with advanced filtering options.
+  ///
+  /// Supports:
+  /// - Date range filtering
+  /// - Category filtering
+  /// - Limit on results
   Future<List<Map<String, dynamic>>> getExpenseAdvance({
     DateTime? startDate,
     DateTime? endDate,
@@ -138,10 +171,7 @@ class DatabaseHelper {
 
     if (startDate != null && endDate != null) {
       whereParts.add('$colDate BETWEEN ? AND ?');
-      args.addAll([
-        startDate.toIso8601String(),
-        endDate.toIso8601String(),
-      ]);
+      args.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
     } else if (startDate != null) {
       whereParts.add('$colDate >= ?');
       args.add(startDate.toIso8601String());
@@ -167,6 +197,8 @@ class DatabaseHelper {
   }
 
   // ---------------- TOTAL ----------------
+
+  /// Calculates total expenses with optional filters.
   Future<double> totalExpenses({
     DateTime? startDate,
     DateTime? endDate,
@@ -179,10 +211,7 @@ class DatabaseHelper {
 
     if (startDate != null && endDate != null) {
       whereParts.add('$colDate BETWEEN ? AND ?');
-      args.addAll([
-        startDate.toIso8601String(),
-        endDate.toIso8601String(),
-      ]);
+      args.addAll([startDate.toIso8601String(), endDate.toIso8601String()]);
     } else if (startDate != null) {
       whereParts.add('$colDate >= ?');
       args.add(startDate.toIso8601String());
@@ -209,6 +238,8 @@ class DatabaseHelper {
   }
 
   // ---------------- SEARCH ----------------
+
+  /// Searches expenses by description keyword.
   Future<List<Map<String, dynamic>>> searchExpense(String q) async {
     final db = await database;
     return db.query(
@@ -220,8 +251,11 @@ class DatabaseHelper {
   }
 
   // ---------------- JOIN QUERY ----------------
+
+  /// Fetches expenses along with their category details using JOIN.
   Future<List<Map<String, dynamic>>> getExpensesWithCategory() async {
     final db = await database;
+
     return db.rawQuery('''
       SELECT e.*, c.$colName as category_name, c.$colColor as category_color,
              c.$colIcon as category_icon
@@ -231,12 +265,27 @@ class DatabaseHelper {
     ''');
   }
 
+  Future<List<Map<String, dynamic>>> getExpensesForStatWithCatageory(
+    int? categoryId,
+  ) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT e.$colAmount as expense_amount,e.$colDate as expense_date,c.$colName as category_name,c.$colIcon as category_icon
+      from $expenseTable as e
+      LEFT JOIN $categoryTable as c ON e.$colCategoryId= c.$colId
+      ORDER BY e.$colDate DESC
+  ''');
+  }
+
   // ---------------- DEBUG ----------------
+
+  /// Deletes all expenses (used for testing/debugging).
   Future<void> clearAllExpenses() async {
     final db = await database;
     await db.delete(expenseTable);
   }
 
+  /// Completely deletes the database file.
   Future<void> deleteDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, dbName);
@@ -244,6 +293,7 @@ class DatabaseHelper {
     _database = null;
   }
 
+  /// Closes the database connection.
   Future<void> close() async {
     if (_database != null) {
       await _database!.close();

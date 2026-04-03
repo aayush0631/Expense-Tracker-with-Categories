@@ -1,19 +1,18 @@
 import 'package:sqflite/sqflite.dart';
 
 class ErrorHandler {
-  static String getMessage(dynamic error) {
+  static String handle(dynamic error) {
     if (error is DatabaseException) {
+      if (error.isNoSuchTableError()) {
+        return "Database not initialized";
+      }
       return "Database error occurred";
     }
 
-    if (error.toString().contains("no such table")) {
-      return "Local database is corrupted";
+    if (error is FormatException) {
+      return "Data parsing error";
     }
 
-    if (error.toString().contains("invalid")) {
-      return "Invalid data format";
-    }
-
-    return "went wrong";
+    return error.toString();
   }
 }

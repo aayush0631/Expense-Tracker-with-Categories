@@ -13,6 +13,16 @@ class Expense {
     required this.date,
   });
 
+  factory Expense.fromMap(Map<String, dynamic> map) {
+    return Expense(
+      id: map['id'],
+      amount: map['amount'],
+      description: map['description'] ?? '',
+      categoryId: map['category_id'],
+      date: DateTime.parse(map['date']),
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -22,14 +32,4 @@ class Expense {
       'date': date.toIso8601String(),
     };
   }
-
-  factory Expense.fromMap(Map<String, dynamic> map) {
-  return Expense(
-    id: map['id'],
-    amount: (map['amount'] as num).toDouble(),
-    description: map['description'] ?? '',
-    categoryId: map['category_id'],
-    date: DateTime.parse(map['date']),
-  );
-}
 }

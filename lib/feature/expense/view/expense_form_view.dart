@@ -1,8 +1,6 @@
 import 'package:expense_tracker/feature/expense/viewmodel/expense_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:expense_tracker/core/utils/validator.dart';
-import 'package:expense_tracker/core/widgets/form_input_widget.dart';
 
 class ExpenseFormView extends StatelessWidget {
   const ExpenseFormView({super.key});
@@ -10,115 +8,169 @@ class ExpenseFormView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ExpenseViewModel>();
+    final isEditing = vm.editingExpense != null;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 24, 16, bottomInset + 24),
       child: Form(
         key: vm.formKey,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Title
             Text(
-              vm.editingExpense == null ? 'Add Expense' : 'Edit Expense',
+              isEditing ? 'Edit Expense' : 'Add Expense',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 16),
-
-            FormInputField(
+            // Amount
+            TextFormField(
               controller: vm.amountController,
-              label: 'Amount',
-              icon: Icons.attach_money,
-              keyboardType: TextInputType.number,
-              validator: Validator.amount,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Amount (Rs)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.attach_money),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Amount is required';
+                if (double.tryParse(v.trim()) == null) {
+                  return 'Enter a valid number';
+                }
+                if (double.parse(v.trim()) <= 0) {
+                  return 'Amount must be greater than 0';
+                }
+                return null;
+              },
             ),
-
             const SizedBox(height: 16),
 
-            FormInputField(
+            // Description
+            TextFormField(
               controller: vm.descriptionController,
-              label: 'Description',
-              icon: Icons.description,
-              validator: Validator.description,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notes),
+              ),
             ),
-
             const SizedBox(height: 16),
 
-            DropdownButtonFormField<int>(
-              initialValue: vm.selectedCategoryId,
+            // Category Dropdown
+            DropdownButtonFormField<int?>(
+              value: vm.editingExpense != null
+                  ? vm.editingExpense!.categoryId
+                  : vm.selectedCategoryId,
               decoration: const InputDecoration(
                 labelText: 'Category',
+                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category),
               ),
-              items: vm.categories.entries
+              items: vm.categories
                   .map(
-                    (entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
+                    (cat) => DropdownMenuItem<int?>(
+                      value: cat.id,
+                      child: Text(cat.name),
                     ),
                   )
                   .toList(),
-              onChanged: (value) {
-                if (value != null) vm.setCategory(value);
-              },
-              validator: (value) =>
-                  value == null ? 'Select category' : null,
+              onChanged: (value) => vm.setFormCategory(value),
+              validator: (v) => v == null ? 'Please select a category' : null,
             ),
-
             const SizedBox(height: 16),
 
-            GestureDetector(
+            // Date Picker
+            InkWell(
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now(),
+                  initialDate: vm.selectedDate ?? DateTime.now(),
                   firstDate: DateTime(2000),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
                 );
-
-                if (picked != null) {
-                  vm.setDate(picked);
-                }
+                if (picked != null) vm.setDate(picked);
               },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(border: Border.all()),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
                 child: Text(
                   vm.selectedDate == null
-                      ? 'Select Date'
-                      : vm.selectedDate.toString(),
+                      ? 'Select a date'
+                      : '${vm.selectedDate!.day}/${vm.selectedDate!.month}/${vm.selectedDate!.year}',
+                  style: TextStyle(
+                    color: vm.selectedDate == null
+                        ? Colors.grey
+                        : null,
+                  ),
                 ),
               ),
             ),
+            const SizedBox(height: 24),
 
-            const SizedBox(height: 20),
-
+            // Submit Button
             ElevatedButton(
-              onPressed: () async {
-                if (!vm.validate()) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Fill all fields')),
-                  );
-                  return;
-                }
-
-                await vm.saveExpense();
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(
-                vm.editingExpense == null ? 'Add' : 'Update',
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
+              onPressed: vm.isLoading
+                  ? null
+                  : () async {
+                      final success = await vm.save();
+                      if (success && context.mounted) {
+                        Navigator.pop(context);
+                      } else if (!success && context.mounted) {
+                        // Show which field is missing
+                        if (vm.selectedDate == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Please select a date')),
+                          );
+                        } else if (vm.selectedCategoryId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Please select a category')),
+                          );
+                        }
+                      }
+                    },
+              child: vm.isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(isEditing ? 'Update' : 'Save'),
             ),
+
+            // Cancel / clear form
+            if (isEditing) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  vm.clearForm();
+                  Navigator.pop(context);
+                },
+                child: const Text('Cancel Edit'),
+              ),
+            ],
           ],
         ),
       ),

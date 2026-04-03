@@ -15,8 +15,6 @@ class StatsScreen extends StatelessWidget{
           return const Center(child: CircularProgressIndicator());
         }
 
-        final expenses = vm.visibleExpenses;
-
         return Column(
           children: [
             Header(vm: vm),

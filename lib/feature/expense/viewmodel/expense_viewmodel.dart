@@ -6,28 +6,24 @@ import 'package:flutter/material.dart';
 
 class ExpenseViewModel extends ChangeNotifier {
   final ExpenseRepository repo;
-
   ExpenseViewModel({required this.repo});
-
-  // ------------------ STATE ------------------
+  //  STATE
   List<Expense> _expenses = [];
   List<Expense> get expenses => _expenses;
-
   List<Expense>? _filteredExpenses;
   List<Expense>? get filteredExpenses => _filteredExpenses;
-
   List<Category> _categories = [];
   List<Category> get categories => _categories;
 
   bool isLoading = false;
   String? errorMessage;
 
-  // ------------------ TOTALS ------------------
+  //  TOTALS
   double totalAll = 0;
   double totalToday = 0;
   double totalMonth = 0;
 
-  // ------------------ NAV ------------------
+  //  NAV
   int _currentIndex = 0;
   int get currentIndex => _currentIndex;
 
@@ -36,24 +32,23 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------ FILTER CATEGORY ------------------
+  //  FILTER CATEGORY
   // Used by the header dropdown to filter the list
   int? selectedCategoryId;
 
-  // ------------------ FORM CATEGORY ------------------
+  //  FORM CATEGORY
   // Separate from filter — used only inside the add/edit form
   int? _formCategoryId;
   int? get formCategoryId => _formCategoryId;
 
   // Returns category name by id, falls back to 'Other'
   String categoryName(int id) {
-    return _categories.firstWhere(
-      (c) => c.id == id,
-      orElse: () => Category(name: 'Other'),
-    ).name;
+    return _categories
+        .firstWhere((c) => c.id == id, orElse: () => Category(name: 'Other'))
+        .name;
   }
 
-  // ------------------ FORM ------------------
+  //  FORM
   final formKey = GlobalKey<FormState>();
   final amountController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -61,14 +56,14 @@ class ExpenseViewModel extends ChangeNotifier {
   DateTime? selectedDate;
   Expense? editingExpense;
 
-  // ------------------ INIT ------------------
+  //  INIT
   Future<void> init() async {
     await loadCategories();
     await loadExpenses();
     await loadDashboard();
   }
 
-  // ------------------ CATEGORIES ------------------
+  //  CATEGORIES
   Future<void> loadCategories() async {
     final result = await repo.getCategories();
     if (result is Success<List<Category>>) {
@@ -77,7 +72,7 @@ class ExpenseViewModel extends ChangeNotifier {
     }
   }
 
-  // ------------------ EXPENSES ------------------
+  //  EXPENSES
   Future<void> loadExpenses() async {
     isLoading = true;
     errorMessage = null;
@@ -96,7 +91,7 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------ SAVE (ADD / EDIT) ------------------
+  //  SAVE (ADD / EDIT)
   Future<bool> save() async {
     if (!(formKey.currentState?.validate() ?? false)) return false;
     if (selectedDate == null || _formCategoryId == null) return false;
@@ -136,7 +131,7 @@ class ExpenseViewModel extends ChangeNotifier {
     return true;
   }
 
-  // ------------------ DELETE ------------------
+  //  DELETE
   Future<bool> deleteExpense(int id) async {
     final result = await repo.deleteExpense(id);
 
@@ -154,7 +149,7 @@ class ExpenseViewModel extends ChangeNotifier {
     return true;
   }
 
-  // ------------------ DASHBOARD ------------------
+  //  DASHBOARD
   Future<void> loadDashboard() async {
     await _refreshTotals();
   }
@@ -164,9 +159,7 @@ class ExpenseViewModel extends ChangeNotifier {
     final todayStart = DateTime(now.year, now.month, now.day);
     final monthStart = DateTime(now.year, now.month, 1);
 
-    final all = await repo.getTotalExpenses(
-      categoryId: selectedCategoryId,
-    );
+    final all = await repo.getTotalExpenses(categoryId: selectedCategoryId);
     final today = await repo.getTotalExpenses(
       start: todayStart,
       end: now,
@@ -185,7 +178,7 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------ FILTER ------------------
+  //  FILTER
   Future<void> setCategory(int? id) async {
     selectedCategoryId = id;
     await _refreshFilter();
@@ -218,43 +211,43 @@ class ExpenseViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-// ------------------ SEARCH STATE ------------------
-final searchController = TextEditingController();
-List<Expense> _searchResults = [];
-List<Expense> get searchResults => _searchResults;
-bool get isSearching => searchController.text.isNotEmpty;
+  //  SEARCH STATE
+  final searchController = TextEditingController();
+  List<Expense> _searchResults = [];
+  List<Expense> get searchResults => _searchResults;
+  bool get isSearching => searchController.text.isNotEmpty;
 
-Future<void> searchExpenses(String query) async {
-  if (query.trim().isEmpty) {
+  Future<void> searchExpenses(String query) async {
+    if (query.trim().isEmpty) {
+      _searchResults = [];
+      notifyListeners();
+      return;
+    }
+
+    final result = await repo.searchExpenses(query.trim());
+
+    if (result is Success<List<Expense>>) {
+      _searchResults = result.data;
+    } else {
+      _searchResults = [];
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> clearSearch() async {
+    searchController.clear();
     _searchResults = [];
     notifyListeners();
-    return;
   }
 
-  final result = await repo.searchExpenses(query.trim());
-
-  if (result is Success<List<Expense>>) {
-    _searchResults = result.data;
-  } else {
-    _searchResults = [];
+  //  VISIBLE LIST
+  // Update this getter to also account for search
+  List<Expense> get visibleExpenses {
+    if (isSearching) return _searchResults;
+    return _filteredExpenses ?? _expenses;
   }
-
-  notifyListeners();
-}
-
-Future<void> clearSearch() async {
-  searchController.clear();
-  _searchResults = [];
-  notifyListeners();
-}
-
-// ------------------ VISIBLE LIST ------------------
-// Update this getter to also account for search
-List<Expense> get visibleExpenses {
-  if (isSearching) return _searchResults;
-  return _filteredExpenses ?? _expenses;
-}
-  // ------------------ FORM HELPERS ------------------
+  //  FORM HELPERS
 
   /// Call this before opening the bottom sheet for editing
   void prepareEdit(Expense expense) {
@@ -287,8 +280,7 @@ List<Expense> get visibleExpenses {
     notifyListeners();
   }
 
-  
-  // ------------------ DISPOSE ------------------
+  //  DISPOSE
   @override
   void dispose() {
     amountController.dispose();

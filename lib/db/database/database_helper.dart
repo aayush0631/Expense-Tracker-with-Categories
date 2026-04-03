@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:expense_tracker/domain/model/category.dart';
 import 'package:path/path.dart';
-import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 /// A singleton helper class that manages dataabase for the expensetracker app
